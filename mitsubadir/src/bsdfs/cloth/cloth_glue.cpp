@@ -26,16 +26,12 @@
 #include <mitsuba/hw/basicshader.h>
 #include <mitsuba/core/warp.h>
 #include <mitsuba/core/fresolver.h>
-#include "wif/wif.c"
-#include "wif/ini.c" //TODO Snygga till! (använda scons?!)
-
 //#include <mitsuba/render/noise.h>
 //#include <mitsuba/hw/gpuprogram.h>
 //#include <mitsuba/core/random.h>
 #include <mitsuba/core/qmc.h>
 
-
-
+#include "src/woven_cloth.h"
 
     /*static uint64_t rdtsc(){
         unsigned int lo,hi;
@@ -49,156 +45,105 @@
 
     //TODO(Vidar): Write documentation
 
-    /*!\plugin{diffuse_copy}{Smooth diffuse material}
-     * \order{1}
-     * \icon{bsdf_diffuse}
-     * \parameters{
-     *     \parameter{reflectance}{\Spectrum\Or\Texture}{
-     *       Specifies the diffuse albedo of the
-     *       material \default{0.5}
-     *     }
-     * }
-     *
-     * \renderings{
-     *     \rendering{Homogeneous reflectance, see \lstref{diffuse-uniform}}
-     *         {bsdf_diffuse_plain}
-     *     \rendering{Textured reflectance, see \lstref{diffuse-textured}}
-     *         {bsdf_diffuse_textured}
-     * }
-     *
-     * The smooth diffuse material (also referred to as ``Lambertian'')
-     * represents an ideally diffuse material with a user-specified amount of
-     * reflectance. Any received illumination is scattered so that the surface
-     * looks the same independently of the direction of observation.
-     *
-     * Apart from a  homogeneous reflectance value, the plugin can also accept
-     * a nested or referenced texture map to be used as the source of reflectance
-     * information, which is then mapped onto the shape based on its UV
-     * parameterization. When no parameters are specified, the model uses the default
-     * of 50% reflectance.
-     *
-     * Note that this material is one-sided---that is, observed from the
-     * back side, it will be completely black. If this is undesirable,
-     * consider using the \pluginref{twosided} BRDF adapter plugin.
-     * \vspace{4mm}
-     *
-     * \begin{xml}[caption={A diffuse material, whose reflectance is specified
-     *     as an sRGB color}, label=lst:diffuse-uniform]
-     * <bsdf type="diffuse">
-     *     <srgb name="reflectance" value="#6d7185"/>
-     * </bsdf>
-     * \end{xml}
-     *
-     * \begin{xml}[caption=A diffuse material with a texture map,
-     *     label=lst:diffuse-textured]
-     * <bsdf type="diffuse">
-     *     <texture type="bitmap" name="reflectance">
-     *         <string name="filename" value="wood.jpg"/>
-     *     </texture>
-     * </bsdf>
-     * \end{xml}
-     */
     class Cloth : public BSDF {
         public:
-            Cloth(const Properties &props)
-                : BSDF(props) {
-                    // Reflectance is used to modify the color of the cloth
-                    /* For better compatibility with other models, support both
-                       'reflectance' and 'diffuseReflectance' as parameter names */
-                    m_reflectance = new ConstantSpectrumTexture(props.getSpectrum(
-                        props.hasProperty("reflectance") ? "reflectance"
+            Cloth(const Properties &props) : BSDF(props) {
+                //Get and set parameters.
+
+                // Reflectance is used to modify the color of the cloth
+                /* For better compatibility with other models, support both
+                   'reflectance' and 'diffuseReflectance' as parameter names */
+                m_reflectance = new ConstantSpectrumTexture(props.getSpectrum(
+                            props.hasProperty("reflectance") ? "reflectance"
                             : "diffuseReflectance", Spectrum(.5f)));
-                    m_uscale = props.getFloat("utiling", 1.0f);
-                    m_vscale = props.getFloat("vtiling", 1.0f);
 
-                    //yarn properties
-                    m_umax = props.getFloat("umax", 0.7f);
-                    m_psi = props.getFloat("psi", M_PI_2);
-                    
-                    //fiber properties
-                    m_alpha = props.getFloat("alpha", 0.05f); //uniform scattering
-                    m_beta = props.getFloat("beta", 2.0f); //forward scattering
-                    m_delta_x = props.getFloat("deltaX", 0.5f); //deltaX for highlights (to be changed)
+                m_weave_parameters.usacle = props.getFloat("utiling", 1.0f);
+                m_weave_parameters.vscale = props.getFloat("vtiling", 1.0f);
+                m_weave_parameters.umax = props.getFloat("umax", 0.7f);
+                m_weave_parameters.psi = props.getFloat("psi", M_PI_2);
+                m_weave_parameters.alpha = props.getFloat("alpha", 0.05f);  //uniform scattering
+                m_weave_parameters.beta = props.getFloat("beta", 2.0f);     //forward scattering
+                m_weave_parameters.delta_x = props.getFloat("deltaX", 0.5f);
+                m_weave_parameters.specular_strength = 
+                    props.getFloat("specular_strength", 0.5f);
+                m_weave_parameters.specular_normalization = 1.f;
 
-                    //random
-                    m_intensity_fineness = props.getFloat("intensity_fineness", 0.0f);
+                //TODO(Peter): fix random
+                m_intensity_fineness = props.getFloat("intensity_fineness", 0.0f);
 
-                    //we do not know what typical values for these should be....
-                    m_sigma_s = props.getFloat("sigma_s", 2.0f); //volume scattering coefficient
-                    m_sigma_t = props.getFloat("sigma_t", 2.0f); //volume attenuation coefficient
-
-                    m_specular_strength = props.getFloat("specular_strength", 0.5f);
-
+                // LOAD WIF Pattern
 #ifdef USE_WIFFILE
-                        // LOAD WIF FILE
-                        std::string wiffilename =
-                            Thread::getThread()->getFileResolver()->
-                        resolve(props.getString("wiffile")).string();
-                        const char *filename = wiffilename.c_str();
-                        WeaveData *data = wif_read(filename);
+                std::string wiffilename =
+                    Thread::getThread()->getFileResolver()->
+                    resolve(props.getString("wiffile")).string();
+                const char *filename = wiffilename.c_str();
+                WeaveData *data = wif_read_wchar(filename);
 
-                        m_pattern_entry = wif_get_pattern(data,&m_pattern_width,
-                                 &m_pattern_height);
-                        wif_free_weavedata(data);
+                m_weave_parameters.pattern_entry = wif_get_pattern(data,
+                        &m_weave_parameters.pattern_width,
+                        &m_weave_parameters.pattern_height);
+                wif_free_weavedata(data);
 #else
-                    // Static pattern
-                    // current: polyester pattern
-                    uint8_t warp_above[] = {
-                        0, 1, 1,
-                        1, 0, 1,
-                        1, 1, 0,
-                    };
-                    float warp_color[] = { 0.7f, 0.7f, 0.7f};
-                    float weft_color[] = { 0.7f, 0.7f, 0.7f};
-                    m_pattern_width = 3;
-                    m_pattern_height = 3;
-                    m_pattern_entry = wif_build_pattern_from_data(warp_above,
+                // Static pattern
+                // current: polyester pattern
+                uint8_t warp_above[] = {
+                    0, 1, 1,
+                    1, 0, 1,
+                    1, 1, 0,
+                };
+                float warp_color[] = { 0.7f, 0.7f, 0.7f};
+                float weft_color[] = { 0.7f, 0.7f, 0.7f};
+                m_weave_parameters.pattern_width = 3;
+                m_weave_parameters.pattern_height = 3;
+                m_weave_parameters.pattern_entry = 
+                    wif_build_pattern_from_data(warp_above,
                             warp_color, weft_color, m_pattern_width,
                             m_pattern_height);
 #endif
 
-            {
-                //Calculate normalization factor for the specular reflection
-                //Irawan:
-                /* Estimate the average reflectance under diffuse
-                   illumination and use it to normalize the specular
-                   component */
-                ref<Random> random = new Random();
-                size_t nSamples = 10000;
-                Intersection its;
-                BSDFSamplingRecord bRec(its, NULL, ERadiance);
-                float result = 0.0f;
-                for (size_t i=0; i<nSamples; ++i) {
-                    bRec.wi = warp::squareToCosineHemisphere(Point2(random->nextFloat(), random->nextFloat()));
-                    bRec.wo = warp::squareToCosineHemisphere(Point2(random->nextFloat(), random->nextFloat()));
-                    its.uv = Point2(random->nextFloat(), random->nextFloat());
-                    its.dpdv = Vector(1.f, 0.f, 0.f);
-                    its.dpdu = Vector(0.f, 1.f, 0.f);
+                {
+                    //Calculate normalization factor for the specular reflection
+                    //Irawan:
+                    /* Estimate the average reflectance under diffuse
+                       illumination and use it to normalize the specular
+                       component */
+                    ref<Random> random = new Random();
+                    size_t nSamples = 10000;
+                    Intersection its;
+                    BSDFSamplingRecord bRec(its, NULL, ERadiance);
+                    float result = 0.0f;
+                    for (size_t i=0; i<nSamples; ++i) {
+                        bRec.wi = warp::squareToCosineHemisphere(Point2(random->nextFloat(), random->nextFloat()));
+                        bRec.wo = warp::squareToCosineHemisphere(Point2(random->nextFloat(), random->nextFloat()));
+                        its.uv = Point2(random->nextFloat(), random->nextFloat());
+                        its.dpdv = Vector(1.f, 0.f, 0.f);
+                        its.dpdu = Vector(0.f, 1.f, 0.f);
 
-                    PatternData pattern_data = getPatternData(its);
-                    result += specularReflectionPattern(
+                        PatternData pattern_data = getPatternData(its);
+                        result += specularReflectionPattern(
                                 bRec.wi, bRec.wo, pattern_data,its);
+                    }
+
+                    if (result == 0.0001f){
+                        m_weave_parameters.specular_normalization = 0.f;
+                    }else{
+                        m_weave_parameters.specular_normalization =
+                            nSamples / (result * M_PI);
+                    }
                 }
 
-                if (result == 0.0001f){
-                    m_specular_normalization = 0.f;
-                }else{
-                    m_specular_normalization = nSamples / (result * M_PI);
+            }
+
+            Cloth(Stream *stream, InstanceManager *manager)
+                : BSDF(stream, manager) {
+                    //TODO(Vidar):Read parameters from stream
+                    m_reflectance = static_cast<Texture *>(manager->getInstance(stream));
+
+                    configure();
                 }
+            ~Cloth() {
+                wif_free_pattern(m_weave_parameters.pattern_data);
             }
-
-        }
-
-        Cloth(Stream *stream, InstanceManager *manager)
-            : BSDF(stream, manager) {
-                //TODO(Vidar):Read parameters from stream
-                m_reflectance = static_cast<Texture *>(manager->getInstance(stream));
-
-                configure();
-            }
-        ~Cloth() {
-            wif_free_pattern(m_pattern_entry);
-        }
 
         void configure() {
             /* Verify the input parameter and fix them if necessary */
@@ -217,6 +162,7 @@
             return pattern_data.color * m_reflectance->eval(its);
         }
 
+        //can go
         struct PatternData
         {
             Spectrum color;
@@ -228,6 +174,7 @@
             bool warp_above; 
         };
 
+        //can go
         void calculateLengthOfSegment(bool warp_above, uint32_t pattern_x,
                 uint32_t pattern_y, uint32_t *steps_left,
                 uint32_t *steps_right) const
@@ -266,6 +213,7 @@
             } while(*incremented_coord != initial_coord);
         }
 
+        //can go
         PatternData getPatternData(const Intersection &its) const {
 
             //Set repeating uv coordinates.
@@ -397,6 +345,7 @@
         }
 
 
+        //TODO(Peter): Implement in abstract 
         float intensityVariation(PatternData pattern_data) const {
             // have index to make a grid of finess*fineness squares 
             // of which to have the same brightness variations.
@@ -421,6 +370,7 @@
 			return std::min(-math::fastlog(xi), (Float) 10.0f);
         }
 
+        //can go
         float specularReflectionPattern(Vector wi, Vector wo, PatternData data, Intersection its) const {
             float reflection = 0.f;
             
@@ -438,6 +388,7 @@
             return reflection;
         }
 
+        // can go
         float evalFilamentSpecular(Vector wi, Vector wo, PatternData data, Intersection its) const {
             // Half-vector, for some reason it seems to already be in the
             // correct coordinate frame... 
@@ -515,6 +466,7 @@
             return reflection;
         }
         
+        //can go
         float evalStapleSpecular(Vector wi, Vector wo, PatternData data, Intersection its) const {
             // Half-vector, for some reason it seems to already be in the
             // correct coordinate frame... 
@@ -631,11 +583,64 @@
         }
 
 
+
+
+
+
+
         Spectrum eval(const BSDFSamplingRecord &bRec, EMeasure measure) const {
             if (!(bRec.typeMask & EDiffuseReflection) || measure != ESolidAngle
                     || Frame::cosTheta(bRec.wi) <= 0
                     || Frame::cosTheta(bRec.wo) <= 0)
                 return Spectrum(0.0f);
+
+
+            //Convert coordinates to correct format for our code...
+            wcIntersectionData intersection_data;
+
+            //get wi and wo in local shading corrds, plain uv.
+            //from mitsuba api:
+            //  Vector mitsuba::BSDFSamplingRecord::wi
+            //  Normalized incident direction in local coordinates.
+            intersection_data.wi_x = bRec.wi.x
+            intersection_data.wi_y = bRec.wi.y
+            intersection_data.wi_z = bRec.wi.z
+                
+            intersection_data.wo_x = bRec.wo.x
+            intersection_data.wo_y = bRec.wo.y
+            intersection_data.wo_z = bRec.wo.z
+            
+            intersection_data.uv_x = bRec.its.uv.x;
+            intersection_data.uv_y = uv.y;
+
+            sc - shade context
+            Point3 uv = sc.UVW(1);
+
+            p - unit vector along ray.
+            d - vector to light
+
+            p = sc.VectorFrom(p,REF_WORLD);
+            // Transform the vector from the specified space to internal camera space.
+            // p vector to transform
+            // REF_WORLD The space to transform the vector from.
+            // So, it transforms p from world space to shading space.
+            
+            d = sc.VectorFrom(d,REF_WORLD);
+
+            // UVW derivatives
+            Point3 dpdUVW[3];
+            sc.DPdUVW(dpdUVW,1);
+
+            //TODO(Vidar): I'm not certain that we want these dot products...
+            Point3 n_vec = sc.Normal().Normalize();
+            Point3 u_vec = dpdUVW[0].Normalize();
+            Point3 v_vec = dpdUVW[1].Normalize();
+            
+            intersection_data.wi_x = ...;
+
+
+            //perturb sampling record...
+            //intensity variation...
 
             // Perturb the sampling record, in turn normal to match our thread normals
             PatternData pattern_data = getPatternData(bRec.its);
@@ -787,6 +792,7 @@
             float m_specular_strength;
             float m_intensity_fineness;
             float m_specular_normalization;
+            wcWeaveParameters m_weave_parameters;
 };
 
 // ================ Hardware shader implementation ================
