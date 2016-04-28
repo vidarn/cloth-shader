@@ -68,6 +68,8 @@ static void unload_dlls()
     delete[] oldDir;
 }
 
+VUtils::Color dynamic_normal_eval(const VUtils::VRayContext &rc, wcWeaveParameters *weave_parameters,
+								  float * perturbed_normal_x, float * perturbed_normal_y, float * perturbed_normal_z);
 VUtils::Color dynamic_eval(const VUtils::VRayContext &rc, const VUtils::Vector &direction,
                            VUtils::Color &lightColor, VUtils::Color &origLightColor,
                            float probLight, int flags, wcWeaveParameters *weave_parameters,

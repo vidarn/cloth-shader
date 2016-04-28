@@ -3,6 +3,11 @@
 
 #include "woven_cloth.h"
 
+//BUMP TEST
+#include "vraybase.h"
+
+
+
 namespace VUtils {
 
 class MyBaseBSDF: public BRDFSampler, public BSDFSampler {

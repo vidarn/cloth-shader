@@ -856,6 +856,40 @@ float wcEvalDiffuse(wcIntersectionData intersection_data,
 
     return value;
 }
+        
+void getPerturbedNormal(wcPatternData data, Intersection its)
+{
+    /*
+    //Get the world space coordinate vectors going along the texture u&v
+    //TODO(Peter) Is it world space though!??!
+    //NOTE(Vidar) You're right, it's probably shading space... :S
+    Float dDispDu = data.normal_x;
+    Float dDispDv = data.normal_y;
+    Vector dpdv = its.dpdv + its.shFrame.n * (
+            -dDispDv - dot(its.shFrame.n, its.dpdv));
+    Vector dpdu = its.dpdu + its.shFrame.n * (
+            -dDispDu - dot(its.shFrame.n, its.dpdu));
+    // dpdv & dpdu are in world space
+
+    //set frame
+    Frame result;
+    result.n = normalize(cross(dpdu, dpdv));
+    result.s = normalize(dpdu - result.n
+            * dot(result.n, dpdu));
+    result.t = cross(result.n, result.s);
+
+    //Flip the normal if it points in the wrong direction
+    if (dot(result.n, its.geoFrame.n) < 0)
+        result.n *= -1;
+    */
+
+    float dDispDu = data.normal_x;
+    float dDispDv = data.normal_y;
+    wcVector dpdv = wcvector(data.normal_x, data.normal_y, data.normal_z);
+
+    return result;
+}
+
 
 WC_PREFIX
 float wcEvalSpecular(wcIntersectionData intersection_data,

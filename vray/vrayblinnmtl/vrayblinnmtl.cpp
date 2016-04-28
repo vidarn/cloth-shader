@@ -10,6 +10,7 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+EVALFUNC NormalEvalFunc = 0;
 EVALFUNC EvalFunc = 0;
 
 
@@ -223,7 +224,7 @@ public:
                 unload_dlls();
 
                 DebugPrint(L"Unloaded dll\n");
-    
+				NormalEvalFunc = (EVALFUNC)get_dynamic_func("dynamic_normal_eval");
                 EvalFunc = (EVALFUNC)get_dynamic_func("dynamic_eval");
 #endif
 				break;

@@ -16,6 +16,14 @@
 
 using namespace VUtils;
 
+void dynamic_normal_eval(const VUtils::VRayContext &rc, 
+						 wcWeaveParameters *weave_parameters,
+						 float *perturbed_normal_x,
+						 float *perturbed_normal_y,
+						 float *perturbed_normal_z) {
+
+}
+
 VUtils::Color dynamic_eval(const VUtils::VRayContext &rc, const Vector &direction,
                            VUtils::Color &lightColor, VUtils::Color &origLightColor,
                            float probLight, int flags,
