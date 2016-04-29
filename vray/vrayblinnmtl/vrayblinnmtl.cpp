@@ -141,6 +141,11 @@ static ParamBlockDesc2 smtl_param_blk ( mtl_params, _T("SkeletonMaterial paramet
 		p_range, 0.0f, 1.f,
 		p_ui, TYPE_SPINNER, EDITTYPE_FLOAT, ctrlID(), ctrlID(), 0.1f,
 	PB_END,
+    mtl_vmax, _FT("cross_curavture"), TYPE_FLOAT, P_ANIMATABLE, 0,
+		p_default, 1.f,
+		p_range, 0.0f, 1.f,
+		p_ui, TYPE_SPINNER, EDITTYPE_FLOAT, ctrlID(), ctrlID(), 0.1f,
+	PB_END,
 	mtl_realworld, _FT("realworld"), TYPE_BOOL, 0, 0,
 		p_default, FALSE,
 		p_ui, TYPE_SINGLECHEKBOX, ctrlID(),
@@ -180,6 +185,7 @@ static ParamBlockDesc2 smtl_param_blk ( mtl_params, _T("SkeletonMaterial paramet
 	PB_END,
 	mtl_yarnvar_xscale, _FT("yarnvar_xscale"), TYPE_FLOAT, P_ANIMATABLE, 0,
 		p_default, 1.f,
+        p_range, 0.0f, 1000.f,
 		p_ui, TYPE_SPINNER, EDITTYPE_FLOAT, ctrlID(), ctrlID(), 0.1f,
 	PB_END,
 	mtl_yarnvar_yscale, _FT("yarnvar_yscale"), TYPE_FLOAT, P_ANIMATABLE, 0,
@@ -193,6 +199,10 @@ static ParamBlockDesc2 smtl_param_blk ( mtl_params, _T("SkeletonMaterial paramet
 	mtl_yarnvar_octaves, _FT("yarnvar_octaves"), TYPE_FLOAT, P_ANIMATABLE, 0,
 		p_default, 1.f,
 		p_ui, TYPE_SPINNER, EDITTYPE_FLOAT, ctrlID(), ctrlID(), 1.f,
+	PB_END,
+	mtl_yarnvar_invert, _FT("yarnvar_invert"), TYPE_BOOL, 0, 0,
+		p_default, FALSE,
+		p_ui, TYPE_SINGLECHEKBOX, ctrlID(),
 	PB_END,
     mtl_wiffile, _FT("wifFile"), TYPE_FILENAME, P_ANIMATABLE, 0,
         p_default, _FT(""),
@@ -396,6 +406,7 @@ void SkeletonMaterial::Update(TimeValue t, Interval& valid) {
 		pblock->GetValue(mtl_diffuse, t, diffuse, ivalid);
 
         pblock->GetValue(mtl_umax,t, umax,ivalid);
+        pblock->GetValue(mtl_vmax,t, vmax,ivalid);
 		pblock->GetValue(mtl_realworld,t, realworld,ivalid);
         pblock->GetValue(mtl_uscale,t, uscale,ivalid);
         pblock->GetValue(mtl_vscale,t, vscale,ivalid);
@@ -410,6 +421,7 @@ void SkeletonMaterial::Update(TimeValue t, Interval& valid) {
 		pblock->GetValue(mtl_yarnvar_yscale,t, yarnvar_yscale,ivalid);
 		pblock->GetValue(mtl_yarnvar_persistance,t, yarnvar_persistance,ivalid);
 		pblock->GetValue(mtl_yarnvar_octaves,t, yarnvar_octaves,ivalid);
+		pblock->GetValue(mtl_yarnvar_invert,t, yarnvar_invert,ivalid);
 	}
 
 	valid &= ivalid;
@@ -420,6 +432,7 @@ void SkeletonMaterial::renderBegin(TimeValue t, VR::VRayRenderer *vray) {
     m_weave_parameters.uscale = uscale;
     m_weave_parameters.vscale = vscale;
     m_weave_parameters.umax   = umax;
+    m_weave_parameters.vmax   = vmax;
     m_weave_parameters.psi    = psi;
     m_weave_parameters.alpha  = alpha;
     m_weave_parameters.beta   = beta;
@@ -432,6 +445,7 @@ void SkeletonMaterial::renderBegin(TimeValue t, VR::VRayRenderer *vray) {
 	m_weave_parameters.yarnvar_yscale = yarnvar_yscale;
 	m_weave_parameters.yarnvar_persistance = yarnvar_persistance;
 	m_weave_parameters.yarnvar_octaves = (int)yarnvar_octaves;
+	m_weave_parameters.yarnvar_invert = yarnvar_invert;
 
     MSTR filename = pblock->GetStr(mtl_wiffile,t);
     wcWeavePatternFromFile_wchar(&m_weave_parameters,filename);

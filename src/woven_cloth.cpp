@@ -479,10 +479,15 @@ static float yarnVariation(wcPatternData pattern_data,
     float y_noise = (tindex_y + (pattern_data.y/2.f + 0.5))
         /(float)params->pattern_width * yscale;
 
-    variation = octavePerlin(x_noise, y_noise, 0,
-            octaves, persistance) * amplitude + 1.f;
+    variation = (octavePerlin(x_noise, y_noise, 0,
+            octaves, persistance) + 1.f) * amplitude;
 
-    return wcClamp(variation, 0.f, 1.f);
+    //option to invert varaition so that it lightens insted of darkens.
+    if (params->yarnvar_invert) {
+        return (1.0 - wcClamp(variation, 0.f, 1.f));
+    } else {
+        return wcClamp(variation, 0.f, 1.f);
+    }
 
     //NOTE(Peter): Right now there is perlin on both warp and weft.
     //Would be useful to specify only warp or weft. Or even better, 
@@ -646,7 +651,7 @@ wcPatternData wcGetPatternData(wcIntersectionData intersection_data,
         segment_v = asinf(y);*/
     //TODO(Vidar): Use a parameter for choosing model?
     float segment_u = y*params->umax;
-    float segment_v = x*M_PI_2;
+    float segment_v = x*params->vmax*M_PI_2;
 
     //Calculate the normal in yarn-local coordinates
     float normal_x = sinf(segment_v);

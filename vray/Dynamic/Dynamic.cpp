@@ -77,24 +77,27 @@ VUtils::Color dynamic_eval(const VUtils::VRayContext &rc, const Vector &directio
 
     wcPatternData dat = wcGetPatternData(intersection_data,weave_parameters);
 
-    float reflection = wcEvalSpecular(intersection_data,dat,weave_parameters);
-
-    float specular = weave_parameters->specular_strength;
-    float diffuse = (1.f - specular) * wcEvalDiffuse(intersection_data,dat,weave_parameters);
-
-    VUtils::Vector v;
-    v.x = (specular*reflection + diffuse*dat.color_r) * lightColor.r;
-    v.y = (specular*reflection + diffuse*dat.color_g) * lightColor.g;
-    v.z = (specular*reflection + diffuse*dat.color_b) * lightColor.b;
-
-    Point3 normal;
+	Point3 normal;
     normal.x = dat.normal_x;
     normal.y = dat.normal_y;
     normal.z = dat.normal_z;
 
     float cs = DotProd(normal, wi);
 	if (cs<0.0f) cs=0.0f;
+	//cs = 0.4 + 0.6*cs;
+
+    float reflection = wcEvalSpecular(intersection_data,dat,weave_parameters);
+
+    float specular = weave_parameters->specular_strength;
+    float diffuse = cs * (1.f - specular) * wcEvalDiffuse(intersection_data,dat,weave_parameters);
+
+    VUtils::Vector v;
+    v.x = (specular*reflection + diffuse*dat.color_r) * lightColor.r;
+    v.y = (specular*reflection + diffuse*dat.color_g) * lightColor.g;
+    v.z = (specular*reflection + diffuse*dat.color_b) * lightColor.b;
+
+
 
     VUtils::Color res(v.x, v.y, v.z);
-    return cs*res;
+    return res;
 }

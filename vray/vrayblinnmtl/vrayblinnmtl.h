@@ -40,6 +40,7 @@ enum { mtl_params, };
 enum {
 	mtl_diffuse,
     mtl_umax,
+	mtl_vmax,
 	mtl_realworld,
     mtl_uscale,
     mtl_vscale,
@@ -55,6 +56,7 @@ enum {
     mtl_yarnvar_yscale,
     mtl_yarnvar_persistance,
     mtl_yarnvar_octaves,
+	mtl_yarnvar_invert,
     mtl_texture,
 };
 
@@ -88,11 +90,11 @@ public:
 	Color reflect, diffuse;
 	//Color opacity;
 
-    float umax, uscale, vscale;
+    float umax, vmax, uscale, vscale;
     float psi, delta_x, specular;
     float alpha, beta, intensity_fineness;
 	float yarnvar_amplitude, yarnvar_xscale, yarnvar_yscale, yarnvar_persistance, yarnvar_octaves;
-	int realworld;
+	int yarnvar_invert, realworld;
 
 	// Parameter and UI management
 	IParamBlock2 *pblock; 	

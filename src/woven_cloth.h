@@ -12,6 +12,7 @@ typedef struct
     float uscale;
     float vscale;
     float umax;
+    float vmax;
     float psi;
     float alpha;
     float beta;
@@ -23,6 +24,7 @@ typedef struct
     float yarnvar_yscale;
     float yarnvar_persistance;
     uint32_t yarnvar_octaves;
+    uint8_t yarnvar_invert;
     uint8_t realworld_uv;
 
 // These are set by calling one of the wcWeavePatternFrom* functions
