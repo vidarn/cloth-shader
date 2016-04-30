@@ -48,9 +48,12 @@
                             : "diffuseReflectance", Spectrum(.5f)));
                     m_weave_params.uscale = props.getFloat("utiling", 1.0f);
                     m_weave_params.vscale = props.getFloat("vtiling", 1.0f);
+                    
+                    m_weave_params.realworld_uv = false;
 
                     //yarn properties
                     m_weave_params.umax = props.getFloat("umax", 0.7f);
+                    m_weave_params.vmax = props.getFloat("vmax", 0.7f);
                     m_weave_params.psi = props.getFloat("psi", M_PI_2);
                     
                     //fiber properties
@@ -61,9 +64,13 @@
                     //noise
                     m_weave_params.intensity_fineness =
                         props.getFloat("intensity_fineness", 0.0f);
+                    m_weave_params.umaxvar_amplitude =
+                        props.getFloat("umaxvar_amplitude", 0.0f);
                     //yarnvar
                     m_weave_params.yarnvar_amplitude =
                         props.getFloat("yarnvar_amplitude", 0.0f);
+                    m_weave_params.yarnvar_offset =
+                        props.getFloat("yarnvar_offset", 0.0f);
                     m_weave_params.yarnvar_xscale =
                         props.getFloat("yarnvar_xscale", 1.0f);
                     m_weave_params.yarnvar_yscale =

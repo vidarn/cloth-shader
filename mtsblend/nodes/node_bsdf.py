@@ -81,10 +81,13 @@ class MtsNodeBsdf_cloth(mitsuba_bsdf_node, Node):
         layout.prop(self, 'beta')
         layout.prop(self, 'psi')
         layout.prop(self, 'umax')
+        layout.prop(self, 'vmax')
         layout.prop(self, 'utiling')
         layout.prop(self, 'vtiling')
         layout.prop(self, 'intensity_fineness')
+        layout.prop(self, 'umaxvar_amplitude')
         layout.prop(self, 'yarnvar_amplitude')
+        layout.prop(self, 'yarnvar_offset')
         layout.prop(self, 'yarnvar_xscale')
         layout.prop(self, 'yarnvar_yscale')
         layout.prop(self, 'yarnvar_persistance')
@@ -94,13 +97,16 @@ class MtsNodeBsdf_cloth(mitsuba_bsdf_node, Node):
     specular_strength = FloatProperty(name = 'Specular Strength', default = 0.5)
     deltaX  = FloatProperty(name = 'Highlight deltaX',    default = 0.3)
     umax    = FloatProperty(name = 'U max', default = 0.7)
+    vmax    = FloatProperty(name = 'V max', default = 1.0)
     alpha   = FloatProperty(name = 'Alpha', default = 0.05)
     beta    = FloatProperty(name = 'Beta', default = 2.0)
     psi     = FloatProperty(name = 'Psi', default = 0.5)
     utiling = FloatProperty(name = 'U tiling', default = 1.0)
     vtiling = FloatProperty(name = 'V tiling', default = 1.0)
     intensity_fineness = FloatProperty(name = 'Intensity var fineness', default = 0.0)
+    umaxvar_amplitude = FloatProperty(name = 'Umax variation amplitude', default = 0.0)
     yarnvar_amplitude = FloatProperty(name = 'Yarnvar. Amplitude', default = 0.0)
+    yarnvar_offset = FloatProperty(name = 'Yarnvar. Offset', default = 0.0)
     yarnvar_xscale = FloatProperty(name = 'Yarnvar. xScale', default = 1.0)
     yarnvar_yscale = FloatProperty(name = 'Yarnvar. yScale', default = 1.0)
     yarnvar_persistance = FloatProperty(name = 'Yarnvar. Perlin persistance', default = 1.0)
@@ -121,13 +127,16 @@ class MtsNodeBsdf_cloth(mitsuba_bsdf_node, Node):
             'specular_strength'   : self.specular_strength,
             'deltaX'   : self.deltaX,
             'umax'   : self.umax,
+            'umax'   : self.vmax,
             'alpha'   : self.alpha,
             'beta'   : self.beta,
             'psi'   : self.psi,
             'utiling': self.utiling,
             'vtiling': self.vtiling,
             'intensity_fineness': self.intensity_fineness,
+            'umaxvar_amplitude': self.umaxvar_amplitude,
             'yarnvar_amplitude': self.yarnvar_amplitude,
+            'yarnvar_offset': self.yarnvar_offset,
             'yarnvar_xscale': self.yarnvar_xscale,
             'yarnvar_yscale': self.yarnvar_yscale,
             'yarnvar_persistance': self.yarnvar_persistance,
