@@ -51,12 +51,13 @@ enum {
     mtl_wiffile,
     mtl_specular,
     mtl_intensity_fineness,
+    mtl_umaxvar_amplitude,
 	mtl_yarnvar_amplitude,
+	mtl_yarnvar_offset,
     mtl_yarnvar_xscale,
     mtl_yarnvar_yscale,
     mtl_yarnvar_persistance,
     mtl_yarnvar_octaves,
-	mtl_yarnvar_invert,
     mtl_texture,
 };
 
@@ -92,9 +93,9 @@ public:
 
     float umax, vmax, uscale, vscale;
     float psi, delta_x, specular;
-    float alpha, beta, intensity_fineness;
-	float yarnvar_amplitude, yarnvar_xscale, yarnvar_yscale, yarnvar_persistance, yarnvar_octaves;
-	int yarnvar_invert, realworld;
+    float alpha, beta, intensity_fineness, umaxvar_amplitude;
+	float yarnvar_amplitude, yarnvar_offset, yarnvar_xscale, yarnvar_yscale, yarnvar_persistance, yarnvar_octaves;
+	int realworld;
 
 	// Parameter and UI management
 	IParamBlock2 *pblock; 	

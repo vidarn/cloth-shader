@@ -19,12 +19,13 @@ typedef struct
     float delta_x;
     float specular_strength;
     float intensity_fineness;
+    float umaxvar_amplitude;
     float yarnvar_amplitude;
+    float yarnvar_offset;
     float yarnvar_xscale;
     float yarnvar_yscale;
     float yarnvar_persistance;
     uint32_t yarnvar_octaves;
-    uint8_t yarnvar_invert;
     uint8_t realworld_uv;
 
 // These are set by calling one of the wcWeavePatternFrom* functions

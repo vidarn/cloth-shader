@@ -89,14 +89,13 @@ VUtils::Color dynamic_eval(const VUtils::VRayContext &rc, const Vector &directio
     float reflection = wcEvalSpecular(intersection_data,dat,weave_parameters);
 
     float specular = weave_parameters->specular_strength;
-    float diffuse = cs * (1.f - specular) * wcEvalDiffuse(intersection_data,dat,weave_parameters);
+    float diffuse = wcEvalDiffuse(intersection_data,dat,weave_parameters);
+	diffuse *= (cs * (1.f - specular));
 
     VUtils::Vector v;
     v.x = (specular*reflection + diffuse*dat.color_r) * lightColor.r;
     v.y = (specular*reflection + diffuse*dat.color_g) * lightColor.g;
     v.z = (specular*reflection + diffuse*dat.color_b) * lightColor.b;
-
-
 
     VUtils::Color res(v.x, v.y, v.z);
     return res;

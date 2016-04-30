@@ -479,15 +479,10 @@ static float yarnVariation(wcPatternData pattern_data,
     float y_noise = (tindex_y + (pattern_data.y/2.f + 0.5))
         /(float)params->pattern_width * yscale;
 
-    variation = (octavePerlin(x_noise, y_noise, 0,
-            octaves, persistance) + 1.f) * amplitude;
+    variation = octavePerlin(x_noise, y_noise, 0,
+            octaves, persistance) * 0.5 * amplitude + params->yarnvar_offset;
 
-    //option to invert varaition so that it lightens insted of darkens.
-    if (params->yarnvar_invert) {
-        return (1.0 - wcClamp(variation, 0.f, 1.f));
-    } else {
-        return wcClamp(variation, 0.f, 1.f);
-    }
+    return wcClamp(variation, 0.f, 1.f);
 
     //NOTE(Peter): Right now there is perlin on both warp and weft.
     //Would be useful to specify only warp or weft. Or even better, 
@@ -645,12 +640,21 @@ wcPatternData wcGetPatternData(wcIntersectionData intersection_data,
         l = tmp2;
     }
 
+    //get umax, perfrom umax variation if wanted
+    float umax;
+    if (params->umaxvar_amplitude > 0.01) {
+        float rand = sampleTEA(total_x,total_y,8);
+        umax = wcClamp((params->umax + 0.5*rand*params->umaxvar_amplitude), 0.f, 1.0);
+    } else {
+        umax = params->umax;
+    }
+
     //Calculate the yarn-segment-local u v coordinates along the curved cylinder
     //NOTE: This is different from how Irawan does it
     /*segment_u = asinf(x*sinf(params->umax));
         segment_v = asinf(y);*/
     //TODO(Vidar): Use a parameter for choosing model?
-    float segment_u = y*params->umax;
+    float segment_u = y*umax;
     float segment_v = x*params->vmax*M_PI_2;
 
     //Calculate the normal in yarn-local coordinates
