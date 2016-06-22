@@ -7,16 +7,10 @@ namespace VUtils {
 
 class MyBaseBSDF: public BRDFSampler, public BSDFSampler {
 protected:
-	Color reflect_filter, transparency;
-	real glossiness;
-	int nsamples;
-	int doubleSided;
 	Color diffuse_color;
 
-	int dontTrace; // true if we need to trace reflections and false otherwise
-	int origBackside;
-
 	Vector normal, gnormal;
+    int orig_backside;
 
 	Matrix nm, inm; // A matrix with the normal as the z-axis; can be used for anisotropy
 
@@ -30,9 +24,7 @@ public:
 	virtual float remapGlossiness(float nk)=0;
 
 	// Initialization
-	void init(const VRayContext &rc, const Color &reflectionColor, real reflectionGlossiness,
-        int subdivs, const Color &transp, int dblSided, const Color &diffuse,
-        wcWeaveParameters *weave_parameters);
+	void init(const VRayContext &rc, wcWeaveParameters *weave_parameters);
 
 	// From BRDFSampler
 	Color getDiffuseColor(Color &lightColor);

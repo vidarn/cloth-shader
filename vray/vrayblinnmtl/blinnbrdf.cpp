@@ -6,32 +6,18 @@
 
 #include "blinnbrdf.h"
 
-extern EVALFUNC EvalFunc;
+#ifdef DYNAMIC
+extern EVALSPECULARFUNC EvalSpecularFunc;
+extern EVALDIFFUSEFUNC  EvalDiffuseFunc;
+#endif
 
 using namespace VUtils;
 
-void MyBaseBSDF::init(const VRayContext &rc, const Color &reflectionColor, real reflectionGlossiness,
-                      int subdivs, const Color &transp, int dblSided, const Color &diffuse,
-                      wcWeaveParameters *weave_parameters) {
-    
-
-	reflect_filter=reflectionColor;
-	diffuse_color=diffuse;
-	transparency=transp;
-	doubleSided=dblSided;
-	origBackside=rc.rayresult.realBack;
-
+void
+MyBaseBSDF::init(const VRayContext &rc, wcWeaveParameters *weave_parameters) {
     m_weave_parameters = weave_parameters;
 
-	// Dim the diffuse color by the reflection
-	if (nsamples>0) {
-		diffuse_color*=reflect_filter.whiteComplement();
-	}
-
-	// Dim the diffuse/reflection colors by the transparency
-	Color invTransp=transp.whiteComplement();
-	diffuse_color*=invTransp;
-	reflect_filter*=invTransp;
+    EvalDiffuseFunc(rc,weave_parameters,&diffuse_color);
 
 	const VR::VRaySequenceData &sdata=rc.vray->getSequenceData();
 
@@ -43,51 +29,45 @@ void MyBaseBSDF::init(const VRayContext &rc, const Color &reflectionColor, real 
 		gnormal=-gnormal;
 	}
 
-	// Check if we need to trace the reflection
-	dontTrace=p_or(
-		p_or(rc.rayparams.totalLevel>=sdata.params.options.mtl_maxDepth, 0==sdata.params.options.mtl_reflectionRefraction),
-		p_and(0!=(rc.rayparams.rayType & RT_INDIRECT), !sdata.params.gi.reflectCaustics)
-	);
+    orig_backside = rc.rayresult.realBack;
 
-	if (dontTrace) {
-		reflect_filter.makeZero();
-	} else {
-		glossiness=remapGlossiness(reflectionGlossiness);
-		nsamples=subdivs*subdivs;
+    // Compute the normal matrix
+    if (rc.rayparams.viewDir*normal>0.0f) computeNormalMatrix(rc, gnormal, nm);
+    else computeNormalMatrix(rc, normal, nm);
 
-		// Compute the normal matrix
-		if (rc.rayparams.viewDir*normal>0.0f) computeNormalMatrix(rc, gnormal, nm);
-		else computeNormalMatrix(rc, normal, nm);
-
-		inm=inverse(nm);
-	}
+    inm=inverse(nm);
 }
 
 // From BRDFSampler
-Color MyBaseBSDF::getDiffuseColor(Color &lightColor) {
-	Color res=diffuse_color*lightColor;
-	lightColor*=transparency;
-	return res;
+VUtils::Color MyBaseBSDF::getDiffuseColor(VUtils::Color &lightColor) {
+    VUtils::Color ret = diffuse_color*lightColor;
+	lightColor = VUtils::Color(0.f,0.f,0.f);
+    return ret;
 }
 
-Color MyBaseBSDF::getLightMult(Color &lightColor) {
-	Color res=(diffuse_color+reflect_filter)*lightColor;
-	lightColor*=transparency;
-	return res;
+VUtils::Color MyBaseBSDF::getLightMult(VUtils::Color &lightColor) {
+    float s = m_weave_parameters->specular_strength;
+    VUtils::Color ret = (diffuse_color + VUtils::Color(s,s,s)) * lightColor;
+	lightColor = VUtils::Color(0.f,0.f,0.f);
+    return ret;
 }
 
-Color MyBaseBSDF::eval(const VRayContext &rc, const Vector &direction, Color &lightColor, Color &origLightColor, float probLight, int flags) {
-#ifdef DYNAMIC
-    if(EvalFunc){
-        return EvalFunc(rc,direction,lightColor,origLightColor,probLight,flags,m_weave_parameters,nm);
-    } else {
-        return Color(1.f,0.f,1.f);
-    }
-#else
-    float cs=(float) (direction*normal);
-	if (cs<0.0f) cs=0.0f;
-    return cs*dynamic_eval(rc,direction,lightColor,origLightColor,probLight,flags,m_weave_parameters,nm);
-#endif
+VUtils::Color MyBaseBSDF::eval(const VRayContext &rc, const Vector &direction, VUtils::Color &lightColor, VUtils::Color &origLightColor, float probLight, int flags) {
+    float factor = direction * rc.rayresult.normal;
+    factor = factor < 0.0f ? 0.0f : factor;
+
+    VUtils::Color reflect_color;
+    EvalSpecularFunc(rc,direction,m_weave_parameters,nm,&reflect_color);
+
+    VUtils::Color ret(
+        (diffuse_color.r + reflect_color.r) * lightColor.r * factor,
+        (diffuse_color.g + reflect_color.g) * lightColor.g * factor,
+        (diffuse_color.b + reflect_color.b) * lightColor.b * factor);
+
+    lightColor     = VUtils::Color(0.f,0.f,0.f);
+    origLightColor = VUtils::Color(0.f,0.f,0.f);
+
+    return ret;
 }
 
 void MyBaseBSDF::traceForward(VRayContext &rc, int doDiffuse) {
@@ -96,62 +76,19 @@ void MyBaseBSDF::traceForward(VRayContext &rc, int doDiffuse) {
 }
 
 int MyBaseBSDF::getNumSamples(const VRayContext &rc, int doDiffuse) {
-	return p_or(rc.rayparams.currentPass==RPASS_GI, (rc.rayparams.rayType & RT_LIGHT)!=0, glossiness<0.0f)? 0 : nsamples;
+    return 0;
 }
 
-Color MyBaseBSDF::getTransparency(const VRayContext &rc) {
-	return transparency;
+VUtils::Color MyBaseBSDF::getTransparency(const VRayContext &rc) {
+	return VUtils::Color(0.f,0.f,0.f);
 }
 
 VRayContext* MyBaseBSDF::getNewContext(const VRayContext &rc, int &samplerID, int doDiffuse) {
-	if (2==doDiffuse || dontTrace || nsamples==0) return NULL;
-
-	// Create a new context
-	VRayContext &nrc=rc.newSpawnContext(2, reflect_filter, RT_REFLECT | RT_GLOSSY | RT_ENVIRONMENT, normal);
-
-	// Set up the new context
-	nrc.rayparams.dDdx.makeZero(); // Zero out the directional derivatives
-	nrc.rayparams.dDdy.makeZero();
-	nrc.rayparams.mint=0.0f; // Set the ray extents
-	nrc.rayparams.maxt=1e18f;
-	nrc.rayparams.tracedRay.p=rc.rayresult.wpoint; // Set the new ray origin to be the surface hit point
-	return &nrc;
+    return NULL;
 }
 
 ValidType MyBaseBSDF::setupContext(const VRayContext &rc, VRayContext &nrc, float uc, int doDiffuse) {
-	if (glossiness<0.0f) {
-		// Pure reflection
-		Vector dir=getReflectDir(rc.rayparams.viewDir, rc.rayresult.normal);
-
-		// If the reflection direction is below the surface, use the geometric normal
-		real r0=-(real) (rc.rayparams.viewDir*rc.rayresult.gnormal);
-		real r1=(real) (dir*rc.rayresult.gnormal);
-		if (r0*r1<0.0f) dir=getReflectDir(rc.rayparams.viewDir, rc.rayresult.gnormal);
-
-		// Set ray derivatives
-		VR::getReflectDerivs(rc.rayparams.viewDir, dir, rc.rayparams.dDdx, rc.rayparams.dDdy, nrc.rayparams.dDdx, nrc.rayparams.dDdy);
-
-		// Set the direction into the ray context
-		nrc.rayparams.tracedRay.dir=nrc.rayparams.viewDir=dir;
-		nrc.rayparams.tracedRay.p=rc.rayresult.wpoint; // Set the new ray origin to be the surface hit point
-		nrc.rayparams.mint=0.0f; // Set the ray extents
-		nrc.rayparams.maxt=1e18f;
-	} else {
-		// Compute a Blinn reflection direction
-		Vector dir=getGlossyReflectionDir(uc, BRDFSampler::getDMCParam(nrc, 1), rc.rayparams.viewDir, nrc.rayparams.rayProbability);
-
-
-		// If this is below the surface, ignore
-		if (dir*gnormal<0.0f) return false;
-
-		// Set ray derivatives
-		VR::getReflectDerivs(rc.rayparams.viewDir, dir, rc.rayparams.dDdx, rc.rayparams.dDdy, nrc.rayparams.dDdx, nrc.rayparams.dDdy);
-
-		// Set the direction into the ray context
-		nrc.rayparams.tracedRay.dir=nrc.rayparams.viewDir=dir;
-	}
-
-	return true;
+    return false;
 }
 
 RenderChannelsInfo* MyBaseBSDF::getRenderChannels(void) { return &RenderChannelsInfo::reflectChannels; }
@@ -162,15 +99,10 @@ void MyBaseBSDF::computeNormalMatrix(const VR::VRayContext &rc, const VR::Vector
 
 // From BSDFSampler
 BRDFSampler* MyBaseBSDF::getBRDF(BSDFSide side) {
-	if (!doubleSided) {
-		if (side==bsdfSide_back) return NULL; // There is nothing on the back side
-		return static_cast<VR::BRDFSampler*>(this);
-	} else {
-		if (side==bsdfSide_front) {
-			if (origBackside) return NULL;
-		} else {
-			if (!origBackside) return NULL;
-		}
-		return static_cast<BRDFSampler*>(this);
-	}
+    if (side==bsdfSide_front) {
+        if (orig_backside) return NULL;
+    } else {
+        if (!orig_backside) return NULL;
+    }
+    return static_cast<BRDFSampler*>(this);
 }

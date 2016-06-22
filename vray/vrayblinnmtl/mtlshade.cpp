@@ -22,7 +22,7 @@ Color SkeletonMaterial::GetAmbient(int mtlNum, BOOL backFace) {
 }
 
 Color SkeletonMaterial::GetDiffuse(int mtlNum, BOOL backFace) {
-	return Color(0.5f, 0.5f, 0.5f);
+	return Color(0.8f, 0.8f, 0.8f);
 }
 
 Color SkeletonMaterial::GetSpecular(int mtlNum, BOOL backFace) {
@@ -75,8 +75,7 @@ VR::BSDFSampler* SkeletonMaterial::newBSDF(const VR::VRayContext &rc, VR::VRende
 	MyBlinnBSDF *bsdf=bsdfPool.newBRDF(rc);
 	if (!bsdf) return NULL;
     //NOTE(Vidar): Send pattern to BSDF
-    bsdf->init(rc, toColor(this->reflect), this->glossiness, 8, VUtils::Color(0.f,0.f,0.f),//toColor(opacity).whiteComplement(),
-        true, toColor(diffuse), &m_weave_parameters);
+    bsdf->init(rc, &m_weave_parameters);
 	return bsdf;
 }
 
