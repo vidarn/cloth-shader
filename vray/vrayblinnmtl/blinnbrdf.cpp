@@ -77,17 +77,20 @@ VUtils::Color MyBaseBSDF::eval(const VRayContext &rc, const Vector &direction,
         // Apply combined sampling ONLY if GI is on which will pick up the rest
         // of the result
         if (rc.rayparams.localRayType & RT_IS_GATHERING_POINT){
-            float probReflection=k*2.0f;
-            probReflection*=probReflection;
-            probLight*=probLight;
-            k*=probLight/(probLight+probReflection);
+            float probReflection=k;
+            //NOTE(Vidar): Multiple importance sampling factor
+            k = getReflectionWeight(probLight, probReflection);
         }
         ret += diffuse_color * k;
     }
     if((flags & FBRDF_SPECULAR) && ((rc.rayparams.rayType & RT_NOSPECULAR) == 0)){
         VUtils::Color reflect_color;
+        //TODO(Vidar):Better importance sampling... Cosine weighted for now
+        float probReflection=cs;
         EvalSpecularFunc(rc,direction,m_weave_parameters,nm,&reflect_color);
-        ret += reflect_color*cs;
+        //NOTE(Vidar): Multiple importance sampling factor
+        float weight = getReflectionWeight(probLight,probReflection);
+        ret += cs*reflect_color*weight;
     }
 
     ret *= lightColor;
@@ -105,15 +108,40 @@ void MyBaseBSDF::traceForward(VRayContext &rc, int doDiffuse) {
 }
 
 int MyBaseBSDF::getNumSamples(const VRayContext &rc, int doDiffuse) {
-    return 0;
+    if(rc.rayparams.currentPass==RPASS_GI ||
+        (rc.rayparams.rayType & RT_LIGHT)!=0) {
+        return 0;
+    }
+    //TODO(Vidar):Select using DMC sampler?
+    return 8;
 }
 
 VRayContext* MyBaseBSDF::getNewContext(const VRayContext &rc, int &samplerID, int doDiffuse) {
-    return NULL;
+    //doDiffuse == 0 => only specular
+    //doDiffuse == 1 => specular & diffuse
+    //doDiffuse == 2 => only diffuse
+	if (2==doDiffuse) return NULL;
+
+    float s = m_weave_parameters->specular_strength;
+    VUtils::Color reflect_filter = VUtils::Color(s,s,s);
+	VRayContext &nrc=rc.newSpawnContext(2, reflect_filter, RT_REFLECT | RT_GLOSSY | RT_ENVIRONMENT, normal);
+
+	// Set up the new context
+	nrc.rayparams.dDdx.makeZero(); // Zero out the directional derivatives
+	nrc.rayparams.dDdy.makeZero();
+	nrc.rayparams.mint=0.0f; // Set the ray extents
+	nrc.rayparams.maxt=1e18f;
+	nrc.rayparams.tracedRay.p=rc.rayresult.wpoint; // Set the new ray origin to be the surface hit point
+	return &nrc;
 }
 
 ValidType MyBaseBSDF::setupContext(const VRayContext &rc, VRayContext &nrc, float uc, int doDiffuse) {
-    return false;
+    //TODO(Vidar):Better importance sampling... Cosine weighted for now
+    Vector dir = getDiffuseDir(uc, BRDFSampler::getDMCParam(nrc,1),nrc.rayparams.rayProbability);
+    if (dir*gnormal<0.0f) return false;
+    VR::getReflectDerivs(rc.rayparams.viewDir, dir, rc.rayparams.dDdx, rc.rayparams.dDdy, nrc.rayparams.dDdx, nrc.rayparams.dDdy);
+    nrc.rayparams.tracedRay.dir=nrc.rayparams.viewDir=dir;
+    return true;
 }
 
 RenderChannelsInfo* MyBaseBSDF::getRenderChannels(void) { return &RenderChannelsInfo::reflectChannels; }
