@@ -74,7 +74,6 @@ Interval SkeletonMaterial::DisplacementValidity(TimeValue t)
 VR::BSDFSampler* SkeletonMaterial::newBSDF(const VR::VRayContext &rc, VR::VRenderMtlFlags flags) {
 	MyBlinnBSDF *bsdf=bsdfPool.newBRDF(rc);
 	if (!bsdf) return NULL;
-    //NOTE(Vidar): Send pattern to BSDF
     bsdf->init(rc, &m_weave_parameters);
 	return bsdf;
 }
@@ -91,22 +90,4 @@ VR::VRayVolume* SkeletonMaterial::getVolume(const VR::VRayContext &rc) {
 
 void SkeletonMaterial::addRenderChannel(int index) {
 	renderChannels+=index;
-}
-
-// The actual BRDF stuff
-
-VR::Vector MyBlinnBSDF::getGlossyReflectionDir(float uc, float vc, const VR::Vector &viewDir, float &rayProbability) {
-
-    return VR::getDiffuseDir(uc,vc,rayProbability);
-	//return VR::blinnDir(uc, vc, glossiness, viewDir, nm, rayProbability);
-}
-
-VR::real MyBlinnBSDF::getGlossyProbability(const VR::Vector &direction, const VR::Vector &viewDir) {
-    VR::Vector d(direction);
-    return VR::getDiffuseDirProbInverse(d,normal);
-	//return VR::blinnDirProb(direction, glossiness, viewDir, inm);
-}
-
-float MyBlinnBSDF::remapGlossiness(float nk) {
-	return nk>0.9999f? -1.0f : (1.0f/powf(1.0f-nk, 3.5f)-1.0f);
 }

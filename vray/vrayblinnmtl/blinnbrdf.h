@@ -16,17 +16,13 @@ protected:
 
     wcWeaveParameters *m_weave_parameters;
 
-	virtual void computeNormalMatrix(const VRayContext &rc, const Vector &normal, Matrix &nm);
 public:
-	// Methods required for derived classes
-	virtual Vector getGlossyReflectionDir(float uc, float vc, const Vector &viewDir, float &rayProbability)=0;
-	virtual VUtils::real getGlossyProbability(const Vector &direction, const Vector &viewDir)=0;
-	virtual float remapGlossiness(float nk)=0;
 
 	// Initialization
 	void init(const VRayContext &rc, wcWeaveParameters *weave_parameters);
 
 	// From BRDFSampler
+	Vector getDiffuseNormal(const VR::VRayContext &rc);
 	Color getDiffuseColor(Color &lightColor);
 	Color getLightMult(Color &lightColor);
 	Color getTransparency(const VRayContext &rc);
